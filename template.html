@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WCL 2026 — Standings & Expected Wins</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin:0; background:#f4f6f8; color:#1d2733; font-family: Arial, Helvetica, sans-serif; font-size:13px; }
+.wrap { max-width:1150px; margin:0 auto; padding:16px 12px 36px; }
+h1 { font-size:19px; color:#243746; margin:0 0 2px; }
+.sub { color:#5a6b78; font-size:12px; margin:0 0 4px; }
+.asof { color:#1a769f; font-size:12px; font-weight:bold; margin:0 0 12px; }
+.controls { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; margin:0 0 0 0; }
+.tabs, .filters { display:flex; gap:6px; }
+.tab { appearance:none; border:1px solid #cdd8df; border-bottom:none; background:#e6edf1; color:#3a4d5a;
+       font-size:12.5px; font-weight:bold; padding:8px 16px; border-radius:8px 8px 0 0; cursor:pointer; }
+.tab.active { background:#243746; color:#fff; border-color:#243746; }
+.filters { margin-bottom:6px; }
+.flt { appearance:none; border:1px solid #cdd8df; background:#fff; color:#3a4d5a; font-size:11.5px; font-weight:bold;
+       padding:5px 12px; border-radius:14px; cursor:pointer; }
+.flt.active { background:#1a769f; color:#fff; border-color:#1a769f; }
+.scroll { overflow-x:auto; border-radius:0 8px 8px 8px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+table { width:100%; border-collapse:collapse; background:#fff; table-layout:fixed; }
+th, td { padding:6px 4px; text-align:center; border-bottom:1px solid #e6ebee; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+th { background:#243746; color:#fff; font-size:10.5px; text-transform:uppercase; font-weight:bold; cursor:pointer; user-select:none; }
+th:hover { background:#2d4456; }
+th .ar { font-size:8px; opacity:.55; margin-left:1px; }
+th.act .ar { opacity:1; color:#7fd4ff; }
+td.team, th.team { text-align:left; position:sticky; left:0; z-index:1; padding-left:8px; }
+th.team { background:#243746; z-index:3; }
+td.team { background:inherit; font-weight:bold; }
+td.div { color:#6b7a85; font-weight:bold; }
+tbody tr { background:#fff; }
+tbody tr:nth-child(even) { background:#f0f5f8; }
+tbody tr.sox { background:#fdf3e3; }
+tbody tr.sox td.team { color:#243746; }
+.pos { color:#0a8043; font-weight:bold; }
+.neg { color:#c0392b; font-weight:bold; }
+.zero { color:#5a6b78; }
+.sep { border-left:2px solid #c9d6dd; }
+.note { font-size:11px; color:#5a6b78; margin-top:13px; line-height:1.6; }
+.cap { font-size:11px; color:#8595a0; padding-top:6px; text-align:right; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>West Coast League 2026 — Standings &amp; Expected Wins</h1>
+  <p class="sub">Full league · source: wclstats.com (Presto) · click a header to sort</p>
+  <p class="asof" id="asof"></p>
+  <div class="filters">
+    <button class="flt active" data-flt="all">All 16</button>
+    <button class="flt" data-flt="N">North</button>
+    <button class="flt" data-flt="S">South</button>
+  </div>
+  <div class="controls">
+    <div class="tabs">
+      <button class="tab active" data-tab="gen">Overview</button>
+      <button class="tab" data-tab="off">Offense</button>
+      <button class="tab" data-tab="pit">Pitching &amp; Defense</button>
+    </div>
+  </div>
+  <div class="scroll">
+    <table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table>
+  </div>
+  <p class="cap" id="cap"></p>
+  <p class="note" id="note"></p>
+</div>
+<script>
+const ASOF = "__ASOF__";
+// [team,div,W,L,GP, AVG,OBP,SLG, RS,RA, oBB,oK, E,SB, ERA,IP,pBB,pK,WHIP,Fpct]
+const DATA = __DATA__;
+
+const rows = DATA.map(d => {
+  const [t,dv,W,L,GP,AVG,OBP,SLG,RS,RA,oBB,oK,E,SB,ERA,IP,pBB,pK,WHIP,Fpct]=d;
+  const g=W+L, pct=g?W/g:0;
+  const exPct=(RS+RA)?Math.pow(RS,2)/(Math.pow(RS,2)+Math.pow(RA,2)):0;
+  return {t,dv,W,L,pct,AVG,OBP,ops:OBP+SLG,RS,RA,oBB,oK,E,SB,ERA,IP,pBB,pK,WHIP,Fpct,
+          diff:RS-RA, exW:exPct*GP, luck:W-exPct*GP};
+});
+
+const f3=x=>x.toFixed(3).replace(/^0/,'');
+const signed=(v,dec)=>{ if(Math.abs(v)<(dec?0.05:0.5)) return `<span class="zero">${dec?'0.0':'0'}</span>`;
+  return `<span class="${v>0?'pos':'neg'}">${(v>0?'+':'')+v.toFixed(dec)}</span>`; };
+
+const TEAMCOL={k:'t',l:'Team',w:22,r:r=>r.t,dir:1,team:1};
+const DIVCOL={k:'dv',l:'Div',w:6,r:r=>`<span class="div">${r.dv}</span>`,dir:1};
+
+const TABS={
+  gen:[TEAMCOL,DIVCOL,
+    {k:'W',l:'W',w:6,r:r=>r.W,dir:-1},
+    {k:'L',l:'L',w:6,r:r=>r.L,dir:1},
+    {k:'pct',l:'PCT',w:8,r:r=>f3(r.pct),dir:-1},
+    {k:'RS',l:'RS',w:7,sep:1,r:r=>r.RS,dir:-1},
+    {k:'RA',l:'RA',w:7,r:r=>r.RA,dir:1},
+    {k:'diff',l:'Diff',w:8,r:r=>signed(r.diff,0),dir:-1},
+    {k:'exW',l:'Exp W',w:8,sep:1,r:r=>r.exW.toFixed(1),dir:-1},
+    {k:'luck',l:'+/-Exp',w:9,r:r=>signed(r.luck,1),dir:-1}],
+  off:[TEAMCOL,DIVCOL,
+    {k:'AVG',l:'AVG',w:8,sep:1,r:r=>f3(r.AVG),dir:-1},
+    {k:'OBP',l:'OBP',w:8,r:r=>f3(r.OBP),dir:-1},
+    {k:'ops',l:'OPS',w:8,r:r=>f3(r.ops),dir:-1},
+    {k:'RS',l:'RS',w:7,sep:1,r:r=>r.RS,dir:-1},
+    {k:'SB',l:'SB',w:6,r:r=>r.SB,dir:-1},
+    {k:'oBB',l:'BB',w:6,sep:1,r:r=>r.oBB,dir:-1},
+    {k:'oK',l:'K',w:6,r:r=>r.oK,dir:1}],
+  pit:[TEAMCOL,DIVCOL,
+    {k:'ERA',l:'ERA',w:8,sep:1,r:r=>r.ERA.toFixed(2),dir:1},
+    {k:'RA',l:'RA',w:7,r:r=>r.RA,dir:1},
+    {k:'WHIP',l:'WHIP',w:8,r:r=>r.WHIP.toFixed(2),dir:1},
+    {k:'pK',l:'K',w:6,sep:1,r:r=>r.pK,dir:-1},
+    {k:'pBB',l:'BB',w:6,r:r=>r.pBB,dir:1},
+    {k:'E',l:'E',w:6,sep:1,r:r=>r.E,dir:1},
+    {k:'Fpct',l:'F%',w:8,r:r=>f3(r.Fpct),dir:-1}]
+};
+const DEFAULT={gen:['W',-1], off:['ops',-1], pit:['ERA',1]};
+
+let tab='gen', flt='all', sortKey='W', sortDir=-1;
+
+function render(){
+  const cols=TABS[tab];
+  document.getElementById('head').innerHTML=cols.map(c=>{
+    const act=c.k===sortKey, ar=act?(sortDir<0?'▼':'▲'):'';
+    return `<th data-k="${c.k}" style="width:${c.w}%" class="${c.team?'team':''} ${c.sep?'sep':''} ${act?'act':''}">${c.l}<span class="ar">${ar}</span></th>`;
+  }).join('');
+  document.querySelectorAll('#head th').forEach(th=>th.addEventListener('click',()=>{
+    const k=th.getAttribute('data-k');
+    if(k===sortKey) sortDir=-sortDir; else {sortKey=k; sortDir=cols.find(c=>c.k===k).dir;}
+    render();
+  }));
+  const view=rows.filter(r=>flt==='all'||r.dv===flt).sort((a,b)=>{
+    let av=a[sortKey],bv=b[sortKey];
+    return typeof av==='string'?av.localeCompare(bv)*sortDir:(av-bv)*sortDir;
+  });
+  document.getElementById('body').innerHTML=view.map(r=>`
+    <tr class="${r.t==='Wenatchee AppleSox'?'sox':''}">
+      ${cols.map(c=>`<td class="${c.team?'team':''} ${c.sep?'sep':''}">${c.r(r)}</td>`).join('')}
+    </tr>`).join('');
+}
+
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); tab=b.getAttribute('data-tab');
+  [sortKey,sortDir]=DEFAULT[tab]; render();
+}));
+document.querySelectorAll('.flt').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.flt').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); flt=b.getAttribute('data-flt'); render();
+}));
+
+document.getElementById('asof').textContent=ASOF;
+render();
+document.getElementById('cap').textContent=`Rendered ${new Date().toLocaleString()}`;
+document.getElementById('note').innerHTML=
+  `<b>Overview</b>: W-L-PCT, runs scored/allowed, run differential, and Pythagorean expected wins. ` +
+  `<b>Exp W</b> = [RS&sup2;/(RS&sup2;+RA&sup2;)] &times; games; <b>+/-Exp</b> &gt; 0 = lucky, &lt; 0 = underperforming. ` +
+  `<b>Offense</b>: AVG, OBP, OPS, RS, SB, batting walks (BB) and strikeouts (K). ` +
+  `<b>Pitching &amp; Defense</b>: ERA, RA, WHIP, staff strikeouts (K) and walks (BB), errors (E), fielding % (F%). ` +
+  `Filter by division with the pills up top. Data source: wclstats.com (Presto). Snapshot reflects games through June 4, 2026; standings as of June 5, 2026.`;
+</script>
+</body>
+</html>

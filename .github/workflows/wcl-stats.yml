@@ -1,0 +1,46 @@
+name: Update WCL Stats Page
+
+on:
+  schedule:
+    # GitHub cron is UTC. 10:00 UTC = 3:00 AM Pacific during PDT (summer / baseball season).
+    # 11:00 UTC = 3:00 AM Pacific during PST. Both listed so it stays ~3 AM year-round.
+    - cron: "0 10 * * *"
+    - cron: "0 11 * * *"
+  workflow_dispatch: {}   # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wcl-stats
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Regenerate page
+        run: python generate.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "No changes."
+          else
+            git commit -m "Update WCL stats $(date -u +%Y-%m-%d)"
+            git push
+          fi
