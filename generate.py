@@ -84,8 +84,11 @@ def grab(page, url, category=None):
     except Exception:
         pass
     data = page.evaluate(EXTRACT)
+    rows_seen = page.evaluate("() => document.querySelectorAll('table tbody tr').length")
+    print(f"[diag] grab {category!r}: title={page.title()!r} tbody_rows={rows_seen}", file=sys.stderr)
     if not data or not data["rows"]:
-        raise RuntimeError(f"no table rows at {url} ({category})")
+        snip = page.evaluate("() => (document.body ? document.body.innerText : '').slice(0,500)")
+        raise RuntimeError(f"no table rows at {url} ({category}); title={page.title()!r}; body[:500]={snip!r}")
     return data
 
 def rows_by_team(data, team_hint=("team",)):
@@ -108,9 +111,19 @@ def main():
         page = browser.new_page()
 
         # --- Standings: W, L ---
-        page.goto(f"{BASE}/standings", wait_until="networkidle", timeout=60000)
-        page.wait_for_function(
-            "() => [...document.querySelectorAll('table tbody tr')].length >= 8", timeout=30000)
+        page.goto(f"{BASE}/standings", wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_timeout(5000)
+        rows_seen = page.evaluate("() => document.querySelectorAll('table tbody tr').length")
+        print(f"[diag] standings: title={page.title()!r} url={page.url} tbody_rows={rows_seen}", file=sys.stderr)
+        if rows_seen < 8:
+            snip = page.evaluate("() => (document.body ? document.body.innerText : '').slice(0,500)")
+            print(f"[diag] standings body[:500]={snip!r}", file=sys.stderr)
+            try:
+                page.wait_for_function(
+                    "() => document.querySelectorAll('table tbody tr').length >= 8", timeout=25000)
+                print("[diag] standings rows appeared after extra wait", file=sys.stderr)
+            except Exception:
+                print("[diag] standings rows NEVER reached 8 (likely blocked/challenged)", file=sys.stderr)
         for tbl in page.evaluate(
             "() => [...document.querySelectorAll('table')].map(t=>({"
             "heads:[...t.querySelectorAll('thead th')].map(th=>th.innerText.trim()),"
