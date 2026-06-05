@@ -107,7 +107,14 @@ def main():
     teams = {t: {} for t in ALL_TEAMS}
 
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        # Presto serves a "Human Verification" wall to datacenter IPs and headless
+        # browsers. Run on a residential machine using real Chrome in a normal window.
+        # Set WCL_HEADLESS=1 to force headless (e.g. for debugging).
+        headless = os.environ.get("WCL_HEADLESS", "0") == "1"
+        try:
+            browser = p.chromium.launch(channel="chrome", headless=headless)
+        except Exception:
+            browser = p.chromium.launch(headless=headless)
         page = browser.new_page()
 
         # --- Standings: W, L ---

@@ -1,12 +1,11 @@
 name: Update WCL Stats Page
 
 on:
-  schedule:
-    # GitHub cron is UTC. 10:00 UTC = 3:00 AM Pacific during PDT (summer / baseball season).
-    # 11:00 UTC = 3:00 AM Pacific during PST. Both listed so it stays ~3 AM year-round.
-    - cron: "0 10 * * *"
-    - cron: "0 11 * * *"
-  workflow_dispatch: {}   # lets you run it manually from the Actions tab
+  # GitHub's runners are datacenter IPs, and wclstats.com (Presto) serves them a
+  # "Human Verification" bot wall, so the scrape can't run here. The daily refresh runs
+  # on a residential machine via Windows Task Scheduler (see refresh.ps1 / SETUP-local.md).
+  # Kept as manual-only in case Presto ever stops blocking datacenter IPs.
+  workflow_dispatch: {}
 
 permissions:
   contents: write
