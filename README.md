@@ -6,7 +6,7 @@ daily (~3 AM Pacific) from wclstats.com, so the published URL is always current 
 every update is a commit. It runs on GitHub's servers — nothing needs to be open on
 any machine.
 
-Published at: **https://applesox.github.io/wcl-stats/**  *(or jose-applesox.github.io/wcl-stats/ if you create it under your personal account)*
+Published at: **https://applesox.github.io/wclstats/**  *(or jose-applesox.github.io/wclstats/ if you create it under your personal account)*
 
 ## Files
 ```
@@ -14,22 +14,22 @@ index.html        the page (overwritten daily by the Action)
 template.html     layout the generator fills — edit this to restyle
 generate.py       scrapes wclstats.com (headless Chromium) and rewrites index.html
 requirements.txt
-.github/workflows/wcl-stats.yml   daily schedule + build steps
+.github/workflows/wclstats.yml   daily schedule + build steps
 ```
 
 ## First-time setup
 
-1. **Create an empty repo on GitHub** named `wcl-stats` (Owner: the `applesox`
+1. **Create an empty repo on GitHub** named `wclstats` (Owner: the `applesox`
    org for branding, or `jose-applesox`). Do NOT add a README/.gitignore/license —
    keep it empty so the first push is clean. Public.
 
-2. **Push this folder** (run in `C:\ClaudeRoot\AppleSoxWCL\wcl-stats`):
+2. **Push this folder** (run in `C:\ClaudeRoot\AppleSoxWCL\wclstats`):
    ```
    git init
    git branch -M main
    git add .
    git commit -m "WCL stats page + daily updater"
-   git remote add origin https://github.com/applesox/wcl-stats.git
+   git remote add origin https://github.com/applesox/wclstats.git
    git push -u origin main
    ```
    (Swap `applesox` for `jose-applesox` in the remote URL if you made it there.)
