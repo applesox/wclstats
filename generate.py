@@ -29,17 +29,31 @@ SOUTH = {"Bend Elks","Corvallis Knights","Marion Berries","Portland Pickles","Ri
          "Springfield Drifters","Walla Walla Sweets","Yakima Valley Pippins"}
 ALL_TEAMS = NORTH | SOUTH
 
-# JS that pulls the largest table on the page as {heads, rows}.
+# JS that pulls the currently-VISIBLE team table as {heads, rows}.
+# The Presto team-stats page keeps all 5 category tables (Hitting, Base Running,
+# Pitching, Fielding, Attendance) in the DOM and shows one at a time; hidden tables
+# return empty innerText, so we must select the visible one, preferring a 'TEAM' header.
 EXTRACT = """() => {
-  const tables=[...document.querySelectorAll('table')];
-  let best=null,n=-1;
-  for(const t of tables){ const r=t.querySelectorAll('tbody tr').length; if(r>n){n=r;best=t;} }
+  const isVisible = el => {
+    if(!el) return false;
+    const s = getComputedStyle(el);
+    if(s.display==='none' || s.visibility==='hidden') return false;
+    return el.offsetParent !== null || s.position==='fixed';
+  };
+  const tables=[...document.querySelectorAll('table')].filter(isVisible);
+  let best=null,score=-1;
+  for(const t of tables){
+    const heads=[...t.querySelectorAll('thead th')].map(th=>th.innerText.trim().toUpperCase());
+    const rows=t.querySelectorAll('tbody tr').length;
+    const s = rows + (heads.includes('TEAM') ? 1000 : 0);
+    if(s>score){score=s;best=t;}
+  }
   if(!best) return null;
   const hrow = best.querySelector('thead tr');
   const heads = hrow ? [...hrow.querySelectorAll('th')].map(th=>th.innerText.trim()) : [];
   const rows = [...best.querySelectorAll('tbody tr')]
       .map(tr=>[...tr.querySelectorAll('td')].map(td=>td.innerText.trim()))
-      .filter(r=>r.length);
+      .filter(r=>r.some(c=>c));
   return {heads, rows};
 }"""
 
@@ -84,8 +98,10 @@ def grab(page, url, category=None):
     except Exception:
         pass
     data = page.evaluate(EXTRACT)
-    rows_seen = page.evaluate("() => document.querySelectorAll('table tbody tr').length")
-    print(f"[diag] grab {category!r}: title={page.title()!r} tbody_rows={rows_seen}", file=sys.stderr)
+    nrows = len(data["rows"]) if data else 0
+    print(f"[diag] grab {category!r}: heads={data['heads'][:9] if data else None} "
+          f"nrows={nrows} firstrow={data['rows'][0][:5] if (data and data['rows']) else None}",
+          file=sys.stderr)
     if not data or not data["rows"]:
         snip = page.evaluate("() => (document.body ? document.body.innerText : '').slice(0,500)")
         raise RuntimeError(f"no table rows at {url} ({category}); title={page.title()!r}; body[:500]={snip!r}")
@@ -131,18 +147,32 @@ def main():
                 print("[diag] standings rows appeared after extra wait", file=sys.stderr)
             except Exception:
                 print("[diag] standings rows NEVER reached 8 (likely blocked/challenged)", file=sys.stderr)
-        for tbl in page.evaluate(
-            "() => [...document.querySelectorAll('table')].map(t=>({"
-            "heads:[...t.querySelectorAll('thead th')].map(th=>th.innerText.trim()),"
-            "rows:[...t.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')].map(td=>td.innerText.trim()))}))"):
-            if not tbl["rows"]: continue
-            heads = tbl["heads"]
+        # Standings tables may not use <thead>; fall back to the first row for headers,
+        # and locate the team cell by scanning (don't assume column 0).
+        stand_tables = page.evaluate("""() => {
+          const out=[];
+          for(const t of document.querySelectorAll('table')){
+            let heads=[...t.querySelectorAll('thead th')].map(e=>e.innerText.trim());
+            let body=[...t.querySelectorAll('tbody tr')];
+            if(heads.length===0){
+              const trs=[...t.querySelectorAll('tr')];
+              if(trs.length){ heads=[...trs[0].children].map(e=>e.innerText.trim()); body=trs.slice(1); }
+            }
+            const rows=body.map(tr=>[...tr.children].map(c=>c.innerText.trim())).filter(r=>r.some(x=>x));
+            out.push({heads, rows});
+          }
+          return out;
+        }""")
+        for tbl in stand_tables:
+            heads, rows = tbl["heads"], tbl["rows"]
             wi, li = col(heads, "w"), col(heads, "l")
             if wi < 0 or li < 0: continue
-            for r in tbl["rows"]:
-                name = clean_team(r[0])
-                if name in ALL_TEAMS and wi < len(r) and li < len(r):
+            for r in rows:
+                name = next((clean_team(c) for c in r if clean_team(c) in ALL_TEAMS), None)
+                if name and wi < len(r) and li < len(r):
                     teams[name]["W"] = int(num(r[wi])); teams[name]["L"] = int(num(r[li]))
+        print(f"[diag] standings parsed W for {sum('W' in v for v in teams.values())}/{len(teams)} teams; "
+              f"table_heads={[t['heads'][:6] for t in stand_tables]}", file=sys.stderr)
 
         # --- Hitting: GP, AVG, OBP, SLG, oBB, oK ---
         for name,(h,r) in rows_by_team(grab(page, f"{BASE}/teams?r=0", "Hitting")).items():
@@ -183,8 +213,13 @@ def main():
                      g(t,"oBB"), g(t,"oK"), g(t,"E"), g(t,"SB"),
                      g(t,"ERA"), g(t,"IP"), g(t,"pBB"), g(t,"pK"), g(t,"WHIP"), g(t,"Fpct")])
 
-    now = datetime.now(ZoneInfo("America/Los_Angeles")) if ZoneInfo else datetime.utcnow()
-    asof = f"Auto-updated {now.strftime('%b %-d, %Y %-I:%M %p %Z')} · source: wclstats.com (Presto)"
+    now = datetime.now(ZoneInfo("America/Los_Angeles")) if ZoneInfo else datetime.now()
+    # Avoid %-d / %-I (Linux-only strftime); build no-leading-zero parts manually for Windows.
+    hr12 = now.hour % 12 or 12
+    ampm = "AM" if now.hour < 12 else "PM"
+    tz = now.strftime("%Z") or "PT"
+    asof = (f"Auto-updated {now.strftime('%b')} {now.day}, {now.year} "
+            f"{hr12}:{now.minute:02d} {ampm} {tz} · source: wclstats.com (Presto)")
 
     tmpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = tmpl.replace("__DATA__", json.dumps(data)).replace("__ASOF__", asof)
