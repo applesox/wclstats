@@ -176,6 +176,8 @@ def main():
             heads, rows = tbl["heads"], tbl["rows"]
             wi, li = col(heads, "w"), col(heads, "l")
             ti = col(heads, "team")
+            si = col(heads, "streak")
+            l10i = col(heads, "last 10", "last10", "l10")
             if wi < 0 or li < 0: continue
             for r in rows:
                 # Anchor W/L on the team cell. The header row and a data row can differ
@@ -188,6 +190,10 @@ def main():
                 name = clean_team(r[ri])
                 if 0 <= wj < len(r) and 0 <= lj < len(r):
                     teams[name]["W"] = int(num(r[wj])); teams[name]["L"] = int(num(r[lj]))
+                # Streak + Last 10 are on the same standings row (new Presto layout);
+                # carry them through so the Full Season tab can mirror Presto exactly.
+                if si >= 0 and 0 <= si + off < len(r): teams[name]["SK"] = r[si + off]
+                if l10i >= 0 and 0 <= l10i + off < len(r): teams[name]["L10"] = r[l10i + off]
         print(f"[diag] standings parsed W for {sum('W' in v for v in teams.values())}/{len(teams)} teams; "
               f"table_heads={[t['heads'][:6] for t in stand_tables]}", file=sys.stderr)
 
@@ -222,8 +228,8 @@ def main():
 
         browser.close()
 
-    # assemble rows matching the template's DATA shape:
-    # [team, div, W, L, GP, AVG, OBP, SLG, RS, RA, oBB, oK, E, SB, ERA, IP, pBB, pK, WHIP, Fpct]
+    # assemble rows matching the template's DATA shape (22 fields):
+    # [team, div, W, L, GP, AVG, OBP, SLG, RS, RA, oBB, oK, E, SB, ERA, IP, pBB, pK, WHIP, Fpct, streak, last10]
     def g(t, k, d=0): return teams[t].get(k, d)
     missing = [t for t in ALL_TEAMS if "W" not in teams[t] or "AVG" not in teams[t]]
     if len(missing) > len(ALL_TEAMS) // 2:
@@ -235,7 +241,8 @@ def main():
         data.append([t, dv, g(t,"W"), g(t,"L"), g(t,"GP"),
                      g(t,"AVG"), g(t,"OBP"), g(t,"SLG"), g(t,"RS"), g(t,"RA"),
                      g(t,"oBB"), g(t,"oK"), g(t,"E"), g(t,"SB"),
-                     g(t,"ERA"), g(t,"IP"), g(t,"pBB"), g(t,"pK"), g(t,"WHIP"), g(t,"Fpct")])
+                     g(t,"ERA"), g(t,"IP"), g(t,"pBB"), g(t,"pK"), g(t,"WHIP"), g(t,"Fpct"),
+                     g(t,"SK",""), g(t,"L10","")])
 
     now = datetime.now(ZoneInfo("America/Los_Angeles")) if ZoneInfo else datetime.now()
     # Avoid %-d / %-I (Linux-only strftime); build no-leading-zero parts manually for Windows.
