@@ -152,8 +152,17 @@ def main():
         stand_tables = page.evaluate("""() => {
           const out=[];
           for(const t of document.querySelectorAll('table')){
-            let heads=[...t.querySelectorAll('thead th')].map(e=>e.innerText.trim());
             let body=[...t.querySelectorAll('tbody tr')];
+            // Presto's layout (changed ~Jul 2026) uses a TWO-ROW thead: a group row
+            // ("Overall" / "Division") sitting above the real column row. Concatenating
+            // all thead th mis-aligns the W/L indexes against the data cells (they end
+            // up on Streak/Last-10 -> parse to 0). Pick the single thead row with the
+            // MOST cells: that is the real column row.
+            let heads=[];
+            for(const hr of t.querySelectorAll('thead tr')){
+              const cells=[...hr.querySelectorAll('th,td')].map(e=>e.innerText.trim());
+              if(cells.length>heads.length) heads=cells;
+            }
             if(heads.length===0){
               const trs=[...t.querySelectorAll('tr')];
               if(trs.length){ heads=[...trs[0].children].map(e=>e.innerText.trim()); body=trs.slice(1); }
@@ -166,13 +175,28 @@ def main():
         for tbl in stand_tables:
             heads, rows = tbl["heads"], tbl["rows"]
             wi, li = col(heads, "w"), col(heads, "l")
+            ti = col(heads, "team")
             if wi < 0 or li < 0: continue
             for r in rows:
-                name = next((clean_team(c) for c in r if clean_team(c) in ALL_TEAMS), None)
-                if name and wi < len(r) and li < len(r):
-                    teams[name]["W"] = int(num(r[wi])); teams[name]["L"] = int(num(r[li]))
+                # Anchor W/L on the team cell. The header row and a data row can differ
+                # by a leading offset (e.g. a rank or logo cell the header lacks), so
+                # find where the team name actually sits and shift W/L by that offset.
+                ri = next((i for i, c in enumerate(r) if clean_team(c) in ALL_TEAMS), -1)
+                if ri < 0: continue
+                off = ri - ti if ti >= 0 else 0
+                wj, lj = wi + off, li + off
+                name = clean_team(r[ri])
+                if 0 <= wj < len(r) and 0 <= lj < len(r):
+                    teams[name]["W"] = int(num(r[wj])); teams[name]["L"] = int(num(r[lj]))
         print(f"[diag] standings parsed W for {sum('W' in v for v in teams.values())}/{len(teams)} teams; "
               f"table_heads={[t['heads'][:6] for t in stand_tables]}", file=sys.stderr)
+
+        # Never publish an all-zero standings page again: if every team parsed to 0-0
+        # the header parse is broken (e.g. another Presto layout change). Fail loudly so
+        # the runner aborts and leaves the last good page in place.
+        if not any(teams[t].get("W", 0) or teams[t].get("L", 0) for t in ALL_TEAMS):
+            raise RuntimeError("standings parse yielded all-zero W-L for every team; "
+                               "refusing to publish (Presto layout likely changed again)")
 
         # --- Hitting: GP, AVG, OBP, SLG, oBB, oK ---
         for name,(h,r) in rows_by_team(grab(page, f"{BASE}/teams?r=0", "Hitting")).items():

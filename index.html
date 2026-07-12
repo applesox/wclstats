@@ -13,7 +13,7 @@ h1 { font-size:19px; color:#243746; margin:0 0 2px; }
 .sub { color:#5a6b78; font-size:12px; margin:0 0 4px; }
 .asof { color:#1a769f; font-size:12px; font-weight:bold; margin:0 0 12px; }
 .controls { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; margin:0 0 0 0; }
-.tabs, .filters { display:flex; gap:6px; }
+.tabs, .filters { display:flex; gap:6px; flex-wrap:wrap; }
 .tab { appearance:none; border:1px solid #cdd8df; border-bottom:none; background:#e6edf1; color:#3a4d5a;
        font-size:12.5px; font-weight:bold; padding:8px 16px; border-radius:8px 8px 0 0; cursor:pointer; }
 .tab.active { background:#243746; color:#fff; border-color:#243746; }
@@ -31,32 +31,64 @@ th.act .ar { opacity:1; color:#7fd4ff; }
 td.team, th.team { text-align:left; position:sticky; left:0; z-index:1; padding-left:8px; }
 th.team { background:#243746; z-index:3; }
 td.team { background:inherit; font-weight:bold; }
+td.rank { color:#8595a0; font-weight:bold; }
 td.div { color:#6b7a85; font-weight:bold; }
 tbody tr { background:#fff; }
 tbody tr:nth-child(even) { background:#f0f5f8; }
 tbody tr.sox { background:#fdf3e3; }
 tbody tr.sox td.team { color:#243746; }
+tbody tr.leader td.team::after { content:" \2726"; color:#0a8043; }
 .pos { color:#0a8043; font-weight:bold; }
 .neg { color:#c0392b; font-weight:bold; }
 .zero { color:#5a6b78; }
+.pct { font-weight:bold; }
+.gbzero { color:#5a6b78; }
 .sep { border-left:2px solid #c9d6dd; }
+.badge { display:inline-block; font-size:9px; font-weight:bold; color:#0a8043; border:1px solid #0a8043;
+         border-radius:8px; padding:1px 5px; margin-left:6px; vertical-align:middle; letter-spacing:.02em; }
 .note { font-size:11px; color:#5a6b78; margin-top:13px; line-height:1.6; }
 .cap { font-size:11px; color:#8595a0; padding-top:6px; text-align:right; }
+/* Presto-style league branding */
+.brandbar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:0 0 10px; }
+.wcl-logo { height:54px; width:auto; display:block; }
+.brandtxt { flex:1 1 240px; min-width:0; }
+.brandtxt h1 { margin:0 0 2px; }
+.brandtxt .sub { margin:0; }
+.presto-link { margin-left:auto; align-self:center; background:#1a769f; color:#fff; text-decoration:none;
+               font-weight:bold; font-size:12px; padding:8px 14px; border-radius:6px; white-space:nowrap; }
+.presto-link:hover { background:#155f80; }
+.credits { font-size:11px; color:#7d8b95; margin-top:14px; border-top:1px solid #e1e8ec; padding-top:10px; line-height:1.6; }
+.credits a { color:#1a769f; text-decoration:none; font-weight:bold; }
+.credits a:hover { text-decoration:underline; }
+/* Embed mode (?embed=1): blend into a host page by dropping the page background
+   and the page's own branding, since the host supplies those. */
+html.embed, html.embed body { background:transparent; }
+html.embed .wrap { padding:6px 10px 20px; }
+html.embed .brandbar, html.embed .credits { display:none; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>West Coast League 2026 — Standings &amp; Expected Wins</h1>
-  <p class="sub">Full league · source: wclstats.com (Presto) · click a header to sort</p>
+  <div class="brandbar">
+    <img class="wcl-logo" src="wcl-logo.png" alt="West Coast League" />
+    <div class="brandtxt">
+      <h1>West Coast League 2026 — Standings &amp; Expected Wins</h1>
+      <p class="sub">Full league · click a header to sort</p>
+    </div>
+    <a class="presto-link" href="https://wclstats.com/sports/bsb/2026/standings" target="_blank" rel="noopener">Official stats on wclstats.com &rarr;</a>
+  </div>
   <p class="asof" id="asof"></p>
   <div class="filters">
-    <button class="flt active" data-flt="all">All 16</button>
-    <button class="flt" data-flt="N">North</button>
+    <button class="flt active" data-flt="N">North</button>
     <button class="flt" data-flt="S">South</button>
+    <button class="flt" data-flt="all">All 16</button>
   </div>
   <div class="controls">
     <div class="tabs">
-      <button class="tab active" data-tab="gen">Overview</button>
+      <button class="tab active" data-tab="full">Full Season</button>
+      <button class="tab" data-tab="second">Second Half</button>
+      <button class="tab" data-tab="first">First Half</button>
+      <button class="tab" data-tab="expw">EXP W</button>
       <button class="tab" data-tab="off">Offense</button>
       <button class="tab" data-tab="pit">Pitching &amp; Defense</button>
     </div>
@@ -66,12 +98,48 @@ tbody tr.sox td.team { color:#243746; }
   </div>
   <p class="cap" id="cap"></p>
   <p class="note" id="note"></p>
+  <p class="credits">
+    Standings and statistics are provided by
+    <a href="https://wclstats.com" target="_blank" rel="noopener">wclstats.com</a>,
+    the official statistics site of the West Coast League, powered by
+    <a href="https://www.prestosports.com" target="_blank" rel="noopener">PrestoSports</a>.
+  </p>
 </div>
 <script>
-const ASOF = "Auto-updated Jul 12, 2026 1:04 PM PDT · source: wclstats.com (Presto)";
-// [team,div,W,L,GP, AVG,OBP,SLG, RS,RA, oBB,oK, E,SB, ERA,IP,pBB,pK,WHIP,Fpct]
-const DATA = [["Kelowna Falcons", "N", 0, 0, 35, 0.266, 0.376, 0.372, 234, 155, 170, 239, 43, 55, 3.54, 308.0, 116, 272, 1.28, 0.967], ["Victoria HarbourCats", "N", 0, 0, 35, 0.276, 0.385, 0.394, 223, 199, 182, 253, 46, 94, 4.31, 311.1, 180, 363, 1.44, 0.963], ["Kamloops NorthPaws", "N", 0, 0, 35, 0.249, 0.359, 0.375, 207, 265, 159, 281, 60, 69, 6.09, 301.1, 184, 214, 1.73, 0.953], ["Bellingham Bells", "N", 0, 0, 35, 0.271, 0.366, 0.371, 230, 176, 145, 248, 34, 51, 4.06, 314.2, 170, 275, 1.39, 0.975], ["Port Angeles Lefties", "N", 0, 0, 34, 0.249, 0.349, 0.334, 145, 271, 123, 264, 51, 21, 6.39, 293.0, 218, 269, 1.85, 0.957], ["Wenatchee AppleSox", "N", 0, 0, 34, 0.273, 0.403, 0.377, 247, 161, 202, 248, 45, 56, 3.6, 299.2, 121, 312, 1.35, 0.964], ["Nanaimo NightOwls", "N", 0, 0, 38, 0.244, 0.349, 0.345, 217, 235, 162, 362, 53, 49, 5.24, 334.2, 178, 260, 1.54, 0.963], ["Edmonton Riverhawks", "N", 0, 0, 34, 0.269, 0.386, 0.377, 221, 200, 172, 292, 55, 52, 4.91, 295.0, 170, 262, 1.54, 0.957], ["Springfield Drifters", "S", 0, 0, 35, 0.236, 0.363, 0.311, 192, 228, 198, 312, 41, 59, 5.48, 302.1, 182, 267, 1.58, 0.967], ["Walla Walla Sweets", "S", 0, 0, 38, 0.256, 0.369, 0.39, 260, 216, 167, 297, 54, 64, 4.8, 332.0, 176, 337, 1.49, 0.96], ["Portland Pickles", "S", 0, 0, 32, 0.249, 0.389, 0.349, 195, 199, 187, 286, 41, 64, 5.28, 281.0, 180, 267, 1.57, 0.966], ["Corvallis Knights", "S", 0, 0, 35, 0.247, 0.376, 0.333, 199, 195, 199, 274, 50, 60, 4.57, 311.1, 176, 332, 1.52, 0.961], ["Marion Berries", "S", 0, 0, 34, 0.221, 0.37, 0.342, 212, 237, 203, 336, 51, 76, 5.76, 297.0, 175, 264, 1.67, 0.961], ["Ridgefield Raptors", "S", 0, 0, 35, 0.264, 0.391, 0.408, 243, 216, 191, 285, 40, 52, 5.46, 303.1, 187, 271, 1.56, 0.969], ["Yakima Valley Pippins", "S", 0, 0, 35, 0.257, 0.376, 0.362, 226, 253, 197, 277, 58, 55, 5.99, 308.0, 212, 302, 1.72, 0.956], ["Bend Elks", "S", 0, 0, 33, 0.234, 0.355, 0.307, 169, 233, 171, 292, 65, 58, 5.49, 287.0, 215, 272, 1.75, 0.948]];
+/* Stats auto-update stamp (nightly Presto scrape). */
+const ASOF = "Auto-updated Jul 11, 2026 3:00 AM PDT · source: wclstats.com (Presto)";
+/* Standings data currency (live if the standings scrape succeeded, else snapshot). */
+const STAND_ASOF = "Overall standings live from wclstats.com (Presto) · first half final";
+/* Stats + overall W-L, one row per team:
+   [team,div,W,L,GP, AVG,OBP,SLG, RS,RA, oBB,oK, E,SB, ERA,IP,pBB,pK,WHIP,Fpct] */
+const DATA = [["Wenatchee AppleSox", "N", 25, 9, 34, 0.274, 0.409, 0.385, 265, 157, 212, 248, 45, 54, 3.54, 299.2, 121, 313, 1.35, 0.964, "Won 4", "7-3"], ["Kelowna Falcons", "N", 21, 13, 34, 0.268, 0.379, 0.374, 229, 153, 166, 228, 42, 53, 3.58, 299.0, 110, 267, 1.27, 0.967, "Lost 1", "7-3"], ["Bellingham Bells", "N", 20, 14, 34, 0.27, 0.365, 0.37, 222, 174, 140, 244, 34, 48, 4.12, 305.2, 168, 265, 1.39, 0.974, "Lost 2", "2-8"], ["Nanaimo NightOwls", "N", 20, 17, 36, 0.241, 0.346, 0.334, 199, 230, 151, 346, 49, 46, 5.39, 318.2, 168, 242, 1.56, 0.964, "Won 1", "5-5"], ["Edmonton Riverhawks", "N", 18, 15, 32, 0.264, 0.385, 0.374, 208, 186, 167, 275, 50, 49, 4.91, 277.0, 159, 238, 1.53, 0.959, "Won 3", "7-3"], ["Victoria HarbourCats", "N", 16, 18, 34, 0.275, 0.381, 0.39, 210, 196, 170, 246, 46, 87, 4.35, 302.1, 174, 358, 1.44, 0.962, "Lost 2", "4-6"], ["Kamloops NorthPaws", "N", 14, 20, 34, 0.25, 0.358, 0.379, 204, 252, 153, 276, 61, 69, 5.88, 292.1, 172, 207, 1.7, 0.951, "Won 1", "4-6"], ["Port Angeles Lefties", "N", 8, 25, 33, 0.245, 0.347, 0.329, 143, 263, 121, 254, 47, 21, 6.41, 285.0, 213, 265, 1.85, 0.959, "Won 1", "3-7"], ["Walla Walla Sweets", "S", 21, 16, 36, 0.252, 0.367, 0.379, 236, 208, 158, 281, 50, 59, 4.95, 313.0, 172, 319, 1.51, 0.961, "Won 1", "6-4"], ["Ridgefield Raptors", "S", 20, 14, 34, 0.262, 0.392, 0.405, 236, 204, 188, 280, 37, 51, 5.35, 294.1, 182, 263, 1.54, 0.971, "Lost 7", "3-7"], ["Corvallis Knights", "S", 18, 16, 34, 0.249, 0.38, 0.337, 199, 184, 197, 268, 49, 60, 4.36, 303.1, 171, 326, 1.51, 0.961, "Lost 1", "6-4"], ["Yakima Valley Pippins", "S", 17, 17, 33, 0.259, 0.381, 0.368, 218, 229, 193, 259, 53, 50, 5.91, 291.0, 203, 286, 1.71, 0.957, "Lost 1", "6-4"], ["Portland Pickles", "S", 15, 16, 31, 0.246, 0.387, 0.343, 183, 192, 182, 278, 40, 61, 5.26, 272.0, 177, 262, 1.56, 0.965, "Won 1", "6-4"], ["Bend Elks", "S", 13, 19, 31, 0.238, 0.359, 0.313, 164, 215, 161, 274, 56, 57, 5.35, 272.2, 204, 256, 1.73, 0.952, "Lost 1", "4-6"], ["Marion Berries", "S", 13, 20, 32, 0.22, 0.372, 0.345, 198, 224, 192, 312, 49, 72, 5.75, 280.0, 170, 247, 1.66, 0.96, "Lost 1", "2-8"], ["Springfield Drifters", "S", 12, 22, 34, 0.233, 0.361, 0.307, 181, 228, 193, 306, 40, 59, 5.65, 293.1, 180, 261, 1.61, 0.967, "Won 3", "6-4"]];
 
+/* ------------------------------------------------------------------
+   FIRST-HALF RECORDS — FINAL / FROZEN. These never change; Presto only
+   publishes overall totals, so the first-half split is carried here from
+   the WCL playoff-picture spreadsheet. Second half = Overall - First Half.
+   { team: [W, L] }
+------------------------------------------------------------------- */
+const FIRSTHALF = {
+  "Wenatchee AppleSox":   [19,  8],
+  "Kelowna Falcons":      [16, 11],
+  "Bellingham Bells":     [19,  8],
+  "Nanaimo NightOwls":    [15, 12],
+  "Edmonton Riverhawks":  [14, 12],
+  "Victoria HarbourCats": [14, 13],
+  "Kamloops NorthPaws":   [11, 16],
+  "Port Angeles Lefties": [ 5, 21],
+  "Ridgefield Raptors":   [20,  7],
+  "Walla Walla Sweets":   [15, 12],
+  "Corvallis Knights":    [13, 14],
+  "Yakima Valley Pippins":[12, 15],
+  "Portland Pickles":     [11, 13],
+  "Bend Elks":            [11, 14],
+  "Marion Berries":       [12, 14],
+  "Springfield Drifters": [ 9, 18]
+};
+
+/* ---- stats rows (EXP W / Offense / Pitching) ---- */
 const rows = DATA.map(d => {
   const [t,dv,W,L,GP,AVG,OBP,SLG,RS,RA,oBB,oK,E,SB,ERA,IP,pBB,pK,WHIP,Fpct]=d;
   const g=W+L, pct=g?W/g:0;
@@ -80,15 +148,59 @@ const rows = DATA.map(d => {
           diff:RS-RA, exW:exPct*GP, luck:W-exPct*GP};
 });
 
+/* ---- standings splits (Full Season / Second Half / First Half) ---- */
+const STAND = DATA.map(d => {
+  const t=d[0], dv=d[1], ovW=d[2], ovL=d[3];
+  const [f1W,f1L] = FIRSTHALF[t] || [0,0];
+  return { t, dv,
+    first:  { W:f1W,      L:f1L },
+    second: { W:ovW-f1W,  L:ovL-f1L },
+    overall:{ W:ovW,      L:ovL },
+    sk: d[20]||'', l10: d[21]||'' };   // overall streak + last-10, mirrored from Presto
+});
+
 const f3=x=>x.toFixed(3).replace(/^0/,'');
 const signed=(v,dec)=>{ if(Math.abs(v)<(dec?0.05:0.5)) return `<span class="zero">${dec?'0.0':'0'}</span>`;
   return `<span class="${v>0?'pos':'neg'}">${(v>0?'+':'')+v.toFixed(dec)}</span>`; };
+const pctOf=r=>{ const g=r.W+r.L; return g? r.W/g : 0; };
+
+/* Games-behind vs the leader of the SAME division for the active split. */
+function computeStanding(split){
+  const list = STAND.map(o => { const r=o[split]; return {t:o.t, dv:o.dv, W:r.W, L:r.L, pct:pctOf(r), sk:o.sk, l10:o.l10}; });
+  ["N","S"].forEach(dv => {
+    const grp = list.filter(r=>r.dv===dv);
+    const lead = grp.slice().sort((a,b)=> b.pct-a.pct || a.L-b.L || b.W-a.W)[0];
+    grp.forEach(r => { r.gb=((lead.W-r.W)+(r.L-lead.L))/2; r.leader=(r===lead); });
+  });
+  return list;
+}
 
 const TEAMCOL={k:'t',l:'Team',w:22,r:r=>r.t,dir:1,team:1};
-const DIVCOL={k:'dv',l:'Div',w:6,r:r=>`<span class="div">${r.dv}</span>`,dir:1};
+const DIVCOL ={k:'dv',l:'Div',w:6,r:r=>`<span class="div">${r.dv}</span>`,dir:1};
 
-const TABS={
-  gen:[TEAMCOL,DIVCOL,
+/* Standings columns (shared by full/second/first). */
+const RANKCOL={k:'rank',l:'#',w:4,dir:1,cls:'rank',r:(r,i)=>i+1};
+const GBCOL={k:'gb',l:'GB',dir:1,sep:1,r:r=> r.gb===0 ? '<span class="gbzero">&mdash;</span>' : r.gb.toFixed(1)};
+const STREAKCOL={k:'sk',l:'Streak',dir:1,sep:1,r:r=>r.sk||'&mdash;'};
+const L10COL={k:'l10',l:'Last 10',dir:1,r:r=>r.l10||'&mdash;'};
+// Full Season mirrors the Presto overall table (adds Streak + Last 10);
+// the derived half-season tabs stay W-L-PCT-GB.
+const STAND_COLS={
+  full: [ RANKCOL, {...TEAMCOL,w:24}, DIVCOL,
+    {k:'W',l:'W',w:7,dir:-1,sep:1,r:r=>r.W},
+    {k:'L',l:'L',w:7,dir:1,r:r=>r.L},
+    {k:'pct',l:'PCT',w:9,dir:-1,cls:'pct',r:r=>f3(r.pct)},
+    {...STREAKCOL,w:15}, {...L10COL,w:14}, {...GBCOL,w:14} ],
+  second: [ {...RANKCOL,w:5}, {...TEAMCOL,w:34}, DIVCOL,
+    {k:'W',l:'W',w:10,dir:-1,sep:1,r:r=>r.W},
+    {k:'L',l:'L',w:10,dir:1,r:r=>r.L},
+    {k:'pct',l:'PCT',w:16,dir:-1,cls:'pct',r:r=>f3(r.pct)},
+    {...GBCOL,w:18} ]
+};
+STAND_COLS.first = STAND_COLS.second;
+
+const STAT_TABS={
+  expw:[TEAMCOL,DIVCOL,
     {k:'W',l:'W',w:6,r:r=>r.W,dir:-1},
     {k:'L',l:'L',w:6,r:r=>r.L,dir:1},
     {k:'pct',l:'PCT',w:8,r:r=>f3(r.pct),dir:-1},
@@ -96,7 +208,7 @@ const TABS={
     {k:'RA',l:'RA',w:7,r:r=>r.RA,dir:1},
     {k:'diff',l:'Diff',w:8,r:r=>signed(r.diff,0),dir:-1},
     {k:'exW',l:'Exp W',w:8,sep:1,r:r=>r.exW.toFixed(1),dir:-1},
-    {k:'luck',l:'+/-Exp',w:9,r:r=>signed(r.luck,1),dir:-1}],
+    {k:'luck',l:'+/-Exp',w:9,r:r=>signed(Math.round(r.luck),0),dir:-1}],
   off:[TEAMCOL,DIVCOL,
     {k:'AVG',l:'AVG',w:8,sep:1,r:r=>f3(r.AVG),dir:-1},
     {k:'OBP',l:'OBP',w:8,r:r=>f3(r.OBP),dir:-1},
@@ -114,12 +226,29 @@ const TABS={
     {k:'E',l:'E',w:6,sep:1,r:r=>r.E,dir:1},
     {k:'Fpct',l:'F%',w:8,r:r=>f3(r.Fpct),dir:-1}]
 };
-const DEFAULT={gen:['W',-1], off:['ops',-1], pit:['ERA',1]};
 
-let tab='gen', flt='all', sortKey='W', sortDir=-1;
+const SPLIT={full:'overall', second:'second', first:'first'};
+const isStanding=t=>t in SPLIT;
+const STAT_DEFAULT={expw:['W',-1], off:['ops',-1], pit:['ERA',1]};
+
+let tab='full', flt='N', sortKey='pct', sortDir=-1;
+
+/* Embed support: ?embed=1 hides the page's own title; postHeight() lets a host
+   page (westcoastleague.com) auto-size the iframe as tabs/filters change. */
+const EMBED = new URLSearchParams(location.search).has('embed');
+if (EMBED) document.documentElement.classList.add('embed');
+function postHeight(){
+  try {
+    const el = document.querySelector('.wrap');
+    const h = Math.ceil((el ? el.getBoundingClientRect().height : document.body.scrollHeight) + 16);
+    if (window.parent !== window) parent.postMessage({ wclstatsHeight: h }, '*');
+  } catch(e){}
+}
 
 function render(){
-  const cols=TABS[tab];
+  const standing=isStanding(tab);
+  const cols = standing ? STAND_COLS[tab] : STAT_TABS[tab];
+
   document.getElementById('head').innerHTML=cols.map(c=>{
     const act=c.k===sortKey, ar=act?(sortDir<0?'▼':'▲'):'';
     return `<th data-k="${c.k}" style="width:${c.w}%" class="${c.team?'team':''} ${c.sep?'sep':''} ${act?'act':''}">${c.l}<span class="ar">${ar}</span></th>`;
@@ -129,20 +258,51 @@ function render(){
     if(k===sortKey) sortDir=-sortDir; else {sortKey=k; sortDir=cols.find(c=>c.k===k).dir;}
     render();
   }));
-  const view=rows.filter(r=>flt==='all'||r.dv===flt).sort((a,b)=>{
-    let av=a[sortKey],bv=b[sortKey];
-    return typeof av==='string'?av.localeCompare(bv)*sortDir:(av-bv)*sortDir;
+
+  let view = standing ? computeStanding(SPLIT[tab]) : rows;
+  view = view.filter(r=> flt==='all' || r.dv===flt).slice().sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(typeof av==='string') return av.localeCompare(bv)*sortDir;
+    return (av-bv)*sortDir || (b.pct-a.pct) || (a.L-b.L);
   });
-  document.getElementById('body').innerHTML=view.map(r=>`
-    <tr class="${r.t==='Wenatchee AppleSox'?'sox':''}">
-      ${cols.map(c=>`<td class="${c.team?'team':''} ${c.sep?'sep':''}">${c.r(r)}</td>`).join('')}
-    </tr>`).join('');
+
+  document.getElementById('body').innerHTML=view.map((r,i)=>{
+    const isSox = r.t==='Wenatchee AppleSox';
+    const isChamp = standing && tab==='first' && r.leader;
+    const cls=[isSox?'sox':'', isChamp?'leader':''].join(' ').trim();
+    const badge = isChamp ? '<span class="badge">1H CHAMP &middot; BERTH</span>' : '';
+    return `<tr class="${cls}">${
+      cols.map(c=>{
+        const val = (c.k==='rank') ? c.r(r,i) : c.r(r);
+        const extra = c.team ? badge : '';
+        return `<td class="${c.team?'team':''} ${c.cls||''} ${c.sep?'sep':''}">${val}${extra}</td>`;
+      }).join('')
+    }</tr>`;
+  }).join('');
+
+  document.getElementById('note').innerHTML = NOTE[tab];
+  document.getElementById('asof').textContent = standing ? STAND_ASOF : ASOF;
+  postHeight();
 }
+
+const NOTE={
+  full: `<b>Full Season</b>: overall W-L-PCT for all 16 clubs, mirrored from the official standings on wclstats.com (Presto). ` +
+    `GB is games behind the division leader. Filter by division with the pills up top.`,
+  second: `<b>Second Half</b> (in progress): each club's overall record minus its final first-half record, so it updates ` +
+    `automatically as overall totals refresh. The second-half champion in each division earns a playoff berth. GB is within the division.`,
+  first: `<b>First Half</b> (final): locked first-half records. The ✦ club is its division's first-half champion and has ` +
+    `clinched a playoff berth. Because some postponed first-half games count toward the second half, a club's first-half games may total fewer than 27.`,
+  expw: `<b>EXP W</b>: W-L-PCT, runs scored/allowed, run differential, and Pythagorean expected wins. ` +
+    `<b>Exp W</b> = [RS&sup2;/(RS&sup2;+RA&sup2;)] &times; games; <b>+/-Exp</b> = actual wins minus expected wins (whole games; + = ahead of pace, &minus; = behind).`,
+  off: `<b>Offense</b>: AVG, OBP, OPS, RS, SB, batting walks (BB) and strikeouts (K). Data source: wclstats.com (Presto).`,
+  pit: `<b>Pitching &amp; Defense</b>: ERA, RA, WHIP, staff strikeouts (K) and walks (BB), errors (E), fielding % (F%). Data source: wclstats.com (Presto).`
+};
 
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   b.classList.add('active'); tab=b.getAttribute('data-tab');
-  [sortKey,sortDir]=DEFAULT[tab]; render();
+  if(isStanding(tab)){ sortKey='pct'; sortDir=-1; } else { [sortKey,sortDir]=STAT_DEFAULT[tab]; }
+  render();
 }));
 document.querySelectorAll('.flt').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.flt').forEach(x=>x.classList.remove('active'));
@@ -152,12 +312,8 @@ document.querySelectorAll('.flt').forEach(b=>b.addEventListener('click',()=>{
 document.getElementById('asof').textContent=ASOF;
 render();
 document.getElementById('cap').textContent=`Rendered ${new Date().toLocaleString()}`;
-document.getElementById('note').innerHTML=
-  `<b>Overview</b>: W-L-PCT, runs scored/allowed, run differential, and Pythagorean expected wins. ` +
-  `<b>Exp W</b> = [RS&sup2;/(RS&sup2;+RA&sup2;)] &times; games; <b>+/-Exp</b> &gt; 0 = lucky, &lt; 0 = underperforming. ` +
-  `<b>Offense</b>: AVG, OBP, OPS, RS, SB, batting walks (BB) and strikeouts (K). ` +
-  `<b>Pitching &amp; Defense</b>: ERA, RA, WHIP, staff strikeouts (K) and walks (BB), errors (E), fielding % (F%). ` +
-  `Filter by division with the pills up top. Data source: wclstats.com (Presto).`;
+window.addEventListener('resize', postHeight);
+window.addEventListener('load', postHeight);
 </script>
 </body>
 </html>
