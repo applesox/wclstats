@@ -1,0 +1,11 @@
+{
+  "_comment": "Copy to relay-config.json and fill in. Prefer an SSH key; do NOT put a password here.",
+  "sftp_host": "iad1-shared-xxxx.dreamhost.com",
+  "sftp_port": 22,
+  "sftp_user": "your_dreamhost_shell_user",
+  "sftp_key_path": "C:\\Users\\JoseOglesby\\.ssh\\dreamhost_ed25519",
+  "sftp_key_passphrase": "",
+  "remote_dir": "/home/your_dreamhost_shell_user/westcoastleague.com/wp-content/uploads/presto-relay",
+  "days_back": 2,
+  "days_forward": 2
+}
