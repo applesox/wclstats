@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WCL 2026 — First Half / Second Half / Overall Standings</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin:0; background:#f4f6f8; color:#1d2733; font-family: Arial, Helvetica, sans-serif; font-size:13px; }
+.wrap { max-width:1000px; margin:0 auto; padding:16px 12px 36px; }
+h1 { font-size:19px; color:#243746; margin:0 0 2px; }
+.sub { color:#5a6b78; font-size:12px; margin:0 0 4px; }
+.asof { color:#1a769f; font-size:12px; font-weight:bold; margin:0 0 12px; }
+.controls { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+.tabs, .filters { display:flex; gap:6px; flex-wrap:wrap; }
+.tab { appearance:none; border:1px solid #cdd8df; border-bottom:none; background:#e6edf1; color:#3a4d5a;
+       font-size:12.5px; font-weight:bold; padding:8px 16px; border-radius:8px 8px 0 0; cursor:pointer; }
+.tab.active { background:#243746; color:#fff; border-color:#243746; }
+.filters { margin-bottom:6px; }
+.flt { appearance:none; border:1px solid #cdd8df; background:#fff; color:#3a4d5a; font-size:11.5px; font-weight:bold;
+       padding:5px 12px; border-radius:14px; cursor:pointer; }
+.flt.active { background:#1a769f; color:#fff; border-color:#1a769f; }
+.scroll { overflow-x:auto; border-radius:0 8px 8px 8px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+table { width:100%; border-collapse:collapse; background:#fff; table-layout:fixed; }
+th, td { padding:7px 4px; text-align:center; border-bottom:1px solid #e6ebee; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+th { background:#243746; color:#fff; font-size:10.5px; text-transform:uppercase; font-weight:bold; cursor:pointer; user-select:none; }
+th:hover { background:#2d4456; }
+th .ar { font-size:8px; opacity:.55; margin-left:1px; }
+th.act .ar { opacity:1; color:#7fd4ff; }
+td.team, th.team { text-align:left; position:sticky; left:0; z-index:1; padding-left:8px; }
+th.team { background:#243746; z-index:3; }
+td.team { background:inherit; font-weight:bold; }
+td.rank { color:#8595a0; font-weight:bold; width:26px; }
+td.div { color:#6b7a85; font-weight:bold; }
+tbody tr { background:#fff; }
+tbody tr:nth-child(even) { background:#f0f5f8; }
+tbody tr.sox { background:#fdf3e3; }
+tbody tr.sox td.team { color:#243746; }
+tbody tr.leader td.team::after { content:" ✦"; color:#0a8043; }
+.pct { font-weight:bold; }
+.gbzero { color:#5a6b78; }
+.sep { border-left:2px solid #c9d6dd; }
+.badge { display:inline-block; font-size:9px; font-weight:bold; color:#0a8043; border:1px solid #0a8043;
+         border-radius:8px; padding:1px 5px; margin-left:6px; vertical-align:middle; letter-spacing:.02em; }
+.note { font-size:11px; color:#5a6b78; margin-top:13px; line-height:1.6; }
+.cap { font-size:11px; color:#8595a0; padding-top:6px; text-align:right; }
+/* Overall tab panel */
+.ov { background:#fff; border-radius:0 8px 8px 8px; box-shadow:0 1px 3px rgba(0,0,0,.08); padding:22px 20px; text-align:center; }
+.ov h2 { color:#243746; font-size:16px; margin:0 0 6px; }
+.ov p { color:#5a6b78; font-size:12.5px; margin:0 auto 16px; max-width:560px; line-height:1.5; }
+.ovbtn { display:inline-block; background:#1a769f; color:#fff; text-decoration:none; font-weight:bold;
+         font-size:13.5px; padding:11px 22px; border-radius:8px; }
+.ovbtn:hover { background:#155f80; }
+.hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>West Coast League 2026 — Standings</h1>
+  <p class="sub">First-half champions and second-half champions in each division clinch a playoff berth · click a header to sort</p>
+  <p class="asof" id="asof"></p>
+
+  <div class="filters" id="filters">
+    <button class="flt active" data-flt="all">All 16</button>
+    <button class="flt" data-flt="N">North</button>
+    <button class="flt" data-flt="S">South</button>
+  </div>
+  <div class="controls">
+    <div class="tabs">
+      <button class="tab active" data-tab="first">First Half</button>
+      <button class="tab" data-tab="second">Second Half</button>
+      <button class="tab" data-tab="overall">Overall</button>
+    </div>
+  </div>
+
+  <div class="scroll" id="tableWrap">
+    <table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table>
+  </div>
+
+  <div class="ov hidden" id="overallPanel">
+    <h2>Overall Standings</h2>
+    <p>The full, live overall standings for all 16 clubs — with tiebreakers, streaks and last-10 — are maintained by the league's official stats partner on Presto. The First Half and Second Half tabs on this page are derived from those overall totals.</p>
+    <a class="ovbtn" id="ovlink" href="https://wclstats.com/sports/bsb/2026/standings" target="_blank" rel="noopener">View Overall Standings on Presto →</a>
+  </div>
+
+  <p class="cap" id="cap"></p>
+  <p class="note" id="note"></p>
+</div>
+
+<script>
+/* ------------------------------------------------------------------
+   AS OF LABEL — update when you refresh the overall numbers below
+------------------------------------------------------------------- */
+const ASOF = "First half FINAL · Second half updated through Jul 5, 2026";
+
+/* ------------------------------------------------------------------
+   DATA — the ONLY thing to update going forward is [ovW, ovL]
+   (overall wins/losses). First-half W-L is FINAL and never changes.
+   Second half is computed automatically as Overall − First Half.
+   [ team, division(N/S), firstHalfW, firstHalfL, overallW, overallL ]
+------------------------------------------------------------------- */
+const DATA = [
+  ["Wenatchee AppleSox",   "N", 19,  8, 22,  9],
+  ["Kelowna Falcons",      "N", 16, 11, 20, 11],
+  ["Bellingham Bells",     "N", 19,  8, 20, 13],
+  ["Nanaimo NightOwls",    "N", 15, 12, 19, 15],
+  ["Edmonton Riverhawks",  "N", 14, 12, 15, 15],
+  ["Victoria HarbourCats", "N", 14, 13, 15, 16],
+  ["Kamloops NorthPaws",   "N", 11, 16, 12, 19],
+  ["Port Angeles Lefties", "N",  5, 21,  7, 23],
+  ["Ridgefield Raptors",   "S", 20,  7, 20, 11],
+  ["Walla Walla Sweets",   "S", 15, 12, 20, 14],
+  ["Corvallis Knights",    "S", 13, 14, 17, 14],
+  ["Yakima Valley Pippins","S", 12, 15, 15, 16],
+  ["Portland Pickles",     "S", 11, 13, 13, 15],
+  ["Bend Elks",            "S", 11, 14, 12, 17],
+  ["Marion Berries",       "S", 12, 14, 13, 19],
+  ["Springfield Drifters", "S",  9, 18,  9, 22]
+];
+
+const TEAMS = DATA.map(d => {
+  const [t, dv, f1W, f1L, ovW, ovL] = d;
+  return {
+    t, dv,
+    first:  { W: f1W,       L: f1L },
+    second: { W: ovW - f1W, L: ovL - f1L },
+    overall:{ W: ovW,       L: ovL }
+  };
+});
+
+const f3 = x => x.toFixed(3).replace(/^0/, "");
+
+function pct(r){ const g = r.W + r.L; return g ? r.W / g : 0; }
+
+/* Games-behind vs the leader of the SAME division for the active split */
+function computeRows(split){
+  const rows = TEAMS.map(o => {
+    const r = o[split];
+    return { t:o.t, dv:o.dv, W:r.W, L:r.L, pct:pct(r) };
+  });
+  ["N","S"].forEach(dv => {
+    const grp = rows.filter(r => r.dv === dv);
+    // leader = best pct, tiebreak fewer losses then more wins
+    const lead = grp.slice().sort((a,b)=> b.pct-a.pct || a.L-b.L || b.W-a.W)[0];
+    grp.forEach(r => {
+      r.gb = ((lead.W - r.W) + (r.L - lead.L)) / 2;
+      r.leader = (r === lead);
+    });
+  });
+  return rows;
+}
+
+const TEAMCOL = { k:"t",   l:"Team", w:34, team:1, dir:1,  r:r=>r.t };
+const COLS = [
+  { k:"rank", l:"#",   w:6,  dir:1,  cls:"rank", r:(r,i)=>i+1 },
+  TEAMCOL,
+  { k:"dv",   l:"Div", w:8,  dir:1,  cls:"div",  r:r=>r.dv },
+  { k:"W",    l:"W",   w:9,  dir:-1, sep:1,      r:r=>r.W },
+  { k:"L",    l:"L",   w:9,  dir:1,              r:r=>r.L },
+  { k:"pct",  l:"PCT", w:12, dir:-1, cls:"pct",  r:r=>f3(r.pct) },
+  { k:"gb",   l:"GB",  w:12, dir:1,  sep:1,      r:r=> r.gb===0 ? '<span class="gbzero">—</span>' : r.gb.toFixed(1) }
+];
+
+let tab = "first", flt = "all", sortKey = "pct", sortDir = -1;
+
+function render(){
+  const overall = (tab === "overall");
+  document.getElementById("tableWrap").classList.toggle("hidden", overall);
+  document.getElementById("overallPanel").classList.toggle("hidden", !overall);
+  document.getElementById("filters").classList.toggle("hidden", overall);
+
+  if (overall){
+    document.getElementById("note").innerHTML = NOTE.overall;
+    return;
+  }
+
+  let rows = computeRows(tab).filter(r => flt === "all" || r.dv === flt);
+  rows.sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if (typeof av === "string") return av.localeCompare(bv)*sortDir;
+    // secondary: win pct desc then fewer losses so ties look natural
+    return (av-bv)*sortDir || (b.pct-a.pct) || (a.L-b.L);
+  });
+
+  document.getElementById("head").innerHTML = COLS.map(c=>{
+    const act = c.k===sortKey, ar = act ? (sortDir<0?"▼":"▲") : "";
+    return `<th data-k="${c.k}" style="width:${c.w}%" class="${c.team?'team':''} ${c.sep?'sep':''} ${act?'act':''}">${c.l}<span class="ar">${ar}</span></th>`;
+  }).join("");
+  document.querySelectorAll("#head th").forEach(th=>th.addEventListener("click",()=>{
+    const k = th.getAttribute("data-k");
+    if (k===sortKey) sortDir=-sortDir; else { sortKey=k; sortDir=COLS.find(c=>c.k===k).dir; }
+    render();
+  }));
+
+  document.getElementById("body").innerHTML = rows.map((r,i)=>{
+    const cls = [r.t==="Wenatchee AppleSox"?"sox":"", (tab==="first"&&r.leader)?"leader":""].join(" ").trim();
+    const badge = (tab==="first" && r.leader) ? '<span class="badge">1H CHAMP · BERTH</span>' : "";
+    return `<tr class="${cls}">${
+      COLS.map(c=>{
+        const val = (c.k==="rank") ? c.r(r,i) : c.r(r);
+        const extra = (c.team ? badge : "");
+        return `<td class="${c.team?'team':''} ${c.cls||''} ${c.sep?'sep':''}">${val}${extra}</td>`;
+      }).join("")
+    }</tr>`;
+  }).join("");
+
+  document.getElementById("note").innerHTML = NOTE[tab];
+}
+
+const NOTE = {
+  first: `<b>First Half (final).</b> Reflects each club's first-half schedule and does not change. ` +
+    `The ✦ team is its division's first-half champion and has clinched a playoff berth. ` +
+    `Some first-half games that were postponed count toward the second half, so a club's first-half games may total fewer than 27. ` +
+    `GB is games behind the division leader. Data source: overall totals from wclstats.com (Presto).`,
+  second: `<b>Second Half (in progress).</b> Computed as each club's overall record minus its final first-half record — ` +
+    `so it updates automatically whenever the overall totals are refreshed. The second-half division champion in each division ` +
+    `earns the other playoff berth. GB is games behind the division leader. Data source: wclstats.com (Presto).`,
+  overall: `<b>Overall.</b> The First Half and Second Half splits on this page are derived from the official overall totals ` +
+    `maintained on Presto. Use the button above for the complete live standings with tiebreakers and streaks.`
+};
+
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); tab=b.getAttribute("data-tab");
+  sortKey="pct"; sortDir=-1; render();
+}));
+document.querySelectorAll(".flt").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".flt").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); flt=b.getAttribute("data-flt"); render();
+}));
+
+document.getElementById("asof").textContent = ASOF;
+render();
+document.getElementById("cap").textContent = `Rendered ${new Date().toLocaleString()}`;
+</script>
+</body>
+</html>

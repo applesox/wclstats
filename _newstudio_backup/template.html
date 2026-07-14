@@ -107,12 +107,12 @@ html.embed .brandbar, html.embed .credits { display:none; }
 </div>
 <script>
 /* Stats auto-update stamp (nightly Presto scrape). */
-const ASOF = "Auto-updated Jul 14, 2026 10:47 AM PDT · source: wclstats.com (Presto)";
+const ASOF = "__ASOF__";
 /* Standings data currency (live if the standings scrape succeeded, else snapshot). */
-const STAND_ASOF = "Overall standings live from wclstats.com (Presto) · first half final";
+const STAND_ASOF = "__STAND_ASOF__";
 /* Stats + overall W-L, one row per team:
    [team,div,W,L,GP, AVG,OBP,SLG, RS,RA, oBB,oK, E,SB, ERA,IP,pBB,pK,WHIP,Fpct] */
-const DATA = [["Wenatchee AppleSox", "N", 26, 10, 36, 0.274, 0.408, 0.38, 272, 166, 219, 262, 45, 60, 3.54, 317.2, 127, 332, 1.34, 0.966, "Won 1", "8-2"], ["Kelowna Falcons", "N", 22, 14, 36, 0.265, 0.375, 0.371, 238, 160, 172, 247, 46, 58, 3.56, 316.1, 117, 281, 1.28, 0.965, "Lost 1", "7-3"], ["Bellingham Bells", "N", 22, 14, 36, 0.272, 0.366, 0.37, 235, 178, 148, 254, 35, 51, 3.95, 323.2, 170, 283, 1.36, 0.975, "Won 2", "4-6"], ["Nanaimo NightOwls", "N", 22, 17, 39, 0.241, 0.348, 0.341, 220, 236, 169, 372, 55, 51, 5.13, 343.2, 181, 271, 1.52, 0.962, "Won 3", "6-4"], ["Edmonton Riverhawks", "N", 19, 16, 35, 0.272, 0.387, 0.379, 231, 209, 175, 298, 59, 55, 4.93, 305.0, 181, 267, 1.56, 0.956, "Won 1", "6-4"], ["Victoria HarbourCats", "N", 18, 18, 36, 0.277, 0.386, 0.397, 235, 204, 185, 260, 46, 97, 4.33, 320.1, 183, 377, 1.44, 0.964, "Won 2", "5-5"], ["Kamloops NorthPaws", "N", 14, 22, 36, 0.25, 0.359, 0.377, 212, 277, 162, 295, 61, 69, 6.29, 310.1, 187, 221, 1.72, 0.954, "Lost 2", "3-7"], ["Port Angeles Lefties", "N", 8, 27, 35, 0.244, 0.344, 0.327, 147, 276, 123, 272, 51, 21, 6.37, 301.0, 221, 275, 1.84, 0.958, "Lost 2", "3-7"], ["Walla Walla Sweets", "S", 23, 16, 39, 0.258, 0.371, 0.392, 275, 221, 173, 298, 54, 65, 4.8, 341.0, 180, 346, 1.49, 0.961, "Won 3", "7-3"], ["Ridgefield Raptors", "S", 20, 16, 36, 0.267, 0.394, 0.413, 255, 232, 198, 292, 41, 53, 5.76, 312.1, 194, 277, 1.59, 0.969, "Lost 9", "1-9"], ["Corvallis Knights", "S", 19, 17, 36, 0.248, 0.377, 0.336, 204, 198, 203, 281, 50, 61, 4.52, 320.1, 182, 339, 1.52, 0.962, "Won 1", "6-4"], ["Portland Pickles", "S", 18, 17, 35, 0.257, 0.393, 0.361, 219, 219, 200, 302, 44, 73, 5.39, 304.0, 194, 287, 1.57, 0.966, "Won 1", "6-4"], ["Yakima Valley Pippins", "S", 17, 19, 36, 0.258, 0.376, 0.365, 231, 268, 201, 286, 62, 56, 6.21, 316.0, 218, 303, 1.73, 0.954, "Lost 3", "5-5"], ["Marion Berries", "S", 14, 21, 35, 0.223, 0.373, 0.341, 221, 247, 214, 341, 55, 78, 5.78, 306.2, 178, 270, 1.68, 0.959, "Lost 1", "3-7"], ["Bend Elks", "S", 14, 22, 36, 0.232, 0.352, 0.302, 178, 244, 181, 316, 69, 59, 5.41, 308.0, 228, 292, 1.72, 0.948, "Lost 1", "3-7"], ["Springfield Drifters", "S", 13, 23, 36, 0.236, 0.363, 0.31, 195, 233, 204, 319, 41, 59, 5.46, 311.1, 186, 274, 1.58, 0.968, "Lost 1", "5-5"]];
+const DATA = __DATA__;
 
 /* ------------------------------------------------------------------
    FIRST-HALF RECORDS — FINAL / FROZEN. These never change; Presto only
