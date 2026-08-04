@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 $RepoDir = "$HOME\wclstats"
 $Log = "$RepoDir\backup-runner.log"
 Set-Location $RepoDir
@@ -14,7 +14,12 @@ if ($ageHours -lt 20) {
 }
 
 "Primary missed its run - executing backup refresh." | Tee-Object $Log -Append
-git pull --rebase origin main --quiet
+
+# This is a backup runner: it keeps no local work of its own. Mirror origin
+# hard so a dirty working tree can NEVER block the update (the old
+# `git pull --rebase` bailed on any uncommitted change) and so the commit
+# below always fast-forwards cleanly.
+git reset --hard origin/main --quiet
 
 # Scrape Presto and regenerate index.html (exits non-zero on failure,
 # so a bad scrape never overwrites a good page)
@@ -24,7 +29,12 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-git add index.html
-git commit -m "Auto-refresh standings (backup runner: soxlive)" 2>&1 | Tee-Object $Log -Append
-git push origin main 2>&1 | Tee-Object $Log -Append
-"Backup refresh pushed successfully." | Tee-Object $Log -Append
+# Only commit/push when index.html actually changed.
+if (git status --porcelain -- index.html) {
+    git add index.html
+    git commit -m "Auto-refresh standings (backup runner: soxlive)" 2>&1 | Tee-Object $Log -Append
+    git push origin main 2>&1 | Tee-Object $Log -Append
+    "Backup refresh pushed successfully." | Tee-Object $Log -Append
+} else {
+    "No standings change - nothing to push." | Tee-Object $Log -Append
+}

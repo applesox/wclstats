@@ -1,0 +1,11 @@
+# Runtime logs / heartbeats — never committed
+*.log
+last-run.json
+
+# Local-only, per-machine relay install (see RELAY_SETUP.md)
+install-relay-task.ps1
+relay-config.json
+relay-work/
+
+# Per-machine scratch
+_newstudio_backup/
